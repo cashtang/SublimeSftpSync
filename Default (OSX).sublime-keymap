@@ -1,0 +1,3 @@
+[
+	{ "keys": ["super+alt+f"], "command": "sftp_sync" }
+]

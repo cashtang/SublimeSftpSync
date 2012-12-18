@@ -1,0 +1,4 @@
+[
+	{ "keys": ["ctrl+alt+f10"], "command": "sftp_sync" },
+    { "keys": ["ctrl+t","ctrl+u"], "command": "sftp_sync" }
+]

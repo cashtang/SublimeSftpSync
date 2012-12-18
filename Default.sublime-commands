@@ -1,0 +1,7 @@
+[
+    {
+        "args": {}, 
+        "caption": "SftpSync: synchronize file via SFTP",
+        "command": "sftp_sync"
+    }
+]
