@@ -277,10 +277,23 @@ class PSCPCommand:
             sublime.message_dialog("is not a regular file or directory")
             return False
         dirpath = os.path.realpath(os.path.dirname(filepath))
-        cfgfile = self._findCfgForPath(dirpath)
-        if len(cfgfile) == 0:
-            sublime.message_dialog("no config file found!")
-            return False
-        self.pscp_cfg_.load_config(cfgfile)
+        view = sublime.active_window().active_view()
+        s = view.settings()
+        if s.has('sftp_server_ip'):
+            # sublime.message_dialog(u"load project config")
+            self.pscp_cfg_.svrip = s.get('sftp_server_ip')
+            self.pscp_cfg_.svrport = int(s.get('sftp_server_port', '22'))
+            self.pscp_cfg_.svruser = s.get('sftp_user', None)
+            self.pscp_cfg_.svruserpwd = s.get('sftp_password', None)
+            self.pscp_cfg_.svrkeyfile = s.get('sftp_keyfile', None)
+            self.pscp_cfg_.svrbasepath = s.get('sftp_basepath', '/')
+            self.pscp_cfg_.timeout = int(s.get('sftp_timeout', '10'))
+        else:
+            cfgfile = self._findCfgForPath(dirpath)
+            if len(cfgfile) == 0:
+                sublime.message_dialog("no config file found!")
+                return False
+            self.pscp_cfg_.load_config(cfgfile)
         #print "relative[%s]" % self.relative_path_
+        # sublime.message_dialog(u"transfer!!!")
         return self.execute(filepath, upload)

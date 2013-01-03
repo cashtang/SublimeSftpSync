@@ -31,8 +31,9 @@ class SftpSyncCommand(sublime_plugin.WindowCommand):
                     return
 
         pscp = PSCPCommand(self)
+        # sublime.message_dialog(u"begin 1")
         pscp.transferFile(view.file_name(), upload)
-        #     self._append_data(u"SftpSync file %s error" % view.name())
+        #self._append_data(u"SftpSync file %s error" % view.name())
 
     def append_data(self, msg):
         try:
