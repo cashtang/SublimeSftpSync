@@ -196,9 +196,9 @@ class PSCPCommand:
         cmdargs = []
         if sublime.platform() == "windows":
             cmdargs += ['-l', self.pscp_cfg_.svruser, '-P', str(self.pscp_cfg_.svrport)]
-            if len(self.pscp_cfg_.svrkeyfile) > 0:
+            if self.pscp_cfg_.svrkeyfile:
                 cmdargs += ['-i', self.self.pscp_cfg_.svrkeyfile]
-            elif len(self.pscp_cfg_.svruserpwd) > 0:
+            elif self.pscp_cfg_.svruserpwd:
                 cmdargs += ['-pw', self.pscp_cfg_.svruserpwd]
             else:
                 print "server user password or key file has not been specified"
