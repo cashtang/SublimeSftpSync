@@ -6,7 +6,6 @@ import ConfigParser
 import subprocess
 import thread
 import time
-import shlex
 import sublime
 CFGFILENAME = 'sftpcfg.ini'
 
@@ -121,7 +120,7 @@ class PSCPCfg:
         self.svruserpwd = cfgs.get('svruserpwd')
         self.svrkeyfile = cfgs.get('svrkeyfile')
         self.svrbasepath = cfgs.get('svrbasepath')
-        self.timeout = cfgs.get('timeout', 10)
+        self.timeout = int(cfgs.get('timeout', 10))
         if len(self.svrbasepath) == 0:
             self.svrbasepath = '/'
 
@@ -215,8 +214,18 @@ class PSCPCommand:
             # sublime.message_dialog(self._get_pscp_command_path())
             return cmdargs
         else:
-            cmdline = 'scp -l %s:%d' % (self.pscp_cfg_.svruser, self.pscp_cfg_.svrport)
-            return shlex.split(cmdline)
+            # print "tofile : %s" % tofile
+            # host = '%s@%s' % (self.pscp_cfg_.svruser, self.pscp_cfg_.svrip)
+            cmdargs = ['scp', '-B', '-P', str(self.pscp_cfg_.svrport)]
+            if self.pscp_cfg_.svrkeyfile:
+                cmdargs += ['-i', self.pscp_cfg_.svrkeyfile]
+            if os.path.isdir(fromfile):
+                cmdargs += ['-r', fromfile, '%s@%s' % (self.pscp_cfg_.svruser, tofile)]
+            else:
+                cmdargs += [fromfile, '%s@%s' % (self.pscp_cfg_.svruser, tofile)]
+            # cmdline = 'scp -l %s:%d' % (self.pscp_cfg_.svruser, self.pscp_cfg_.svrport)
+            print cmdargs
+            return cmdargs
 
         # p = subprocess.Popen(cmdline,stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
         # ret = p.communicate()
