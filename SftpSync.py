@@ -1,8 +1,57 @@
 import sublime
 import sublime_plugin
-from sftpsync_module import PSCPCommand
 import functools
+import os
+import socket
+import paramiko
 
+class SftpTools(object):
+    def __init__(self):
+        super(SftpTools, self).__init__()
+
+    def execute(self, transform_files, host, user, password, port=22):
+        hostkeytype = None
+        hostkey = None
+        host_keys = self._load_host_keys()
+        if host_keys.has_key(host):
+            hostkeytype = host_keys[host].keys()[0]
+            hostkey = host_keys[host][hostkeytype]
+
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(5.0)
+            sock.connect((host, port))
+            t = paramiko.Transport(sock)
+            t.connect(username=user, password=password, hostkey=hostkey)
+            sftp = paramiko.SFTPClient.from_transport(t)
+            self._transform(sftp, transform_files)
+            t.close()
+            return True, 'OK'
+        except Exception as e:
+            msg = u"Load Error,<{0}>".format(e)
+            return False, msg
+
+    def upload(self, source_file):
+        pass
+
+    def _transform(self, sftp, file_list):
+        for src, dst in file_list:
+            dst_dir = os.path.dirname(dst)
+            try:
+                sftp.mkdir(dst_dir)
+            except IOError:
+                pass
+            sftp.put(src, dst)
+
+    def _load_host_keys(self):
+        try:
+            host_keys = paramiko.util.load_host_keys(os.path.expanduser('~/.ssh/known_hosts'))
+        except IOError:
+            try:
+                host_keys = paramiko.util.load_host_keys(os.path.expanduser('~/ssh/known_hosts'))
+            except IOError:
+                return {}
+        return host_keys
 
 class SftpSyncCommand(sublime_plugin.WindowCommand):
     def run(self, upload=True, allopenfile=False, encoding='utf-8'):
@@ -30,10 +79,28 @@ class SftpSyncCommand(sublime_plugin.WindowCommand):
                     sublime.message_dialog(u'Save file failed!!')
                     return
 
-        pscp = PSCPCommand(self)
-        # sublime.message_dialog(u"begin 1")
-        pscp.transferFile(view.file_name(), upload)
-        #self._append_data(u"SftpSync file %s error" % view.name())
+        sftp = SftpTools()
+        settings = view.settings()
+        hostname = settings.get('sftp_hostname')
+        port = settings.get('sftp_port', 22)
+        user = settings.get('sftp_user')
+        password = settings.get('sftp_password')
+        remote_basedir = settings.get("sftp_remote_basedir")
+
+        relative_path = self._guess_relative_path(view)
+        remote_path = os.path.join(remote_basedir, relative_path)
+        r, msg = sftp.execute((view.file_name(), remote_path), hostname, user, password, port)
+        if r:
+            self.show_status(u"Upload file success!")
+        else:
+            self.show_status(msg)
+
+    def _guess_relative_path(self, view):
+        file_name = view.file_name()
+        for f in self.window.folders():
+            if file_name.startswith(f):
+                return file_name[len(f) + 1:]
+        return file_name
 
     def append_data(self, msg):
         try:
