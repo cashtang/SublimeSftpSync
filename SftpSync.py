@@ -4,35 +4,59 @@ import functools
 import os
 import socket
 import paramiko
+import threading
 
 class SftpTools(object):
-    def __init__(self):
+    def __init__(self, parent):
         super(SftpTools, self).__init__()
+        self.hostname = None
+        self.user = None
+        self.password = None
+        self.port = 22
+        self.transform_files = None
+        self.parent = parent
+        self.thr = None
 
     def execute(self, transform_files, host, user, password, port=22):
+        self.transform_files = transform_files
+        self.hostname = host
+        self.user = user
+        self.port = port
+        self.password = password
+        self.thr = threading.Thread(target=self.run)
+        self.thr.start()
+        # self.run()
+
+    def run(self):
+        ret, msg = self._do_run()
+        if ret:
+            self.parent.on_data(self, u"Upload success")
+        else:
+            self.parent.on_data(self, msg)
+        self.parent.finish(self)
+
+    def _do_run(self):
         hostkeytype = None
         hostkey = None
         host_keys = self._load_host_keys()
-        if host_keys.has_key(host):
-            hostkeytype = host_keys[host].keys()[0]
-            hostkey = host_keys[host][hostkeytype]
+        if host_keys.has_key(self.hostname):
+            hostkeytype = host_keys[self.hostname].keys()[0]
+            hostkey = host_keys[self.hostname][hostkeytype]
 
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.settimeout(5.0)
-            sock.connect((host, port))
+            sock.connect((self.hostname, self.port))
             t = paramiko.Transport(sock)
-            t.connect(username=user, password=password, hostkey=hostkey)
+            t.connect(username=self.user, password=self.password, hostkey=hostkey)
+            self.parent.on_data(self, u"Connect remote success!")
             sftp = paramiko.SFTPClient.from_transport(t)
-            self._transform(sftp, transform_files)
+            self._transform(sftp, self.transform_files)
             t.close()
             return True, 'OK'
-        except Exception as e:
+        except BaseException as e:
             msg = u"Load Error,<{0}>".format(e)
             return False, msg
-
-    def upload(self, source_file):
-        pass
 
     def _transform(self, sftp, file_list):
         for src, dst in file_list:
@@ -41,6 +65,8 @@ class SftpTools(object):
                 sftp.mkdir(dst_dir)
             except IOError:
                 pass
+            self.parent.on_data(self, u"Upload file <{0}>".format(src))
+            self.parent.on_data(self, u"Target <{0}>".format(dst))
             sftp.put(src, dst)
 
     def _load_host_keys(self):
@@ -79,7 +105,7 @@ class SftpSyncCommand(sublime_plugin.WindowCommand):
                     sublime.message_dialog(u'Save file failed!!')
                     return
 
-        sftp = SftpTools()
+        sftp = SftpTools(self)
         settings = view.settings()
         hostname = settings.get('sftp_hostname')
         port = settings.get('sftp_port', 22)
@@ -89,11 +115,7 @@ class SftpSyncCommand(sublime_plugin.WindowCommand):
 
         relative_path = self._guess_relative_path(view)
         remote_path = os.path.join(remote_basedir, relative_path)
-        r, msg = sftp.execute((view.file_name(), remote_path), hostname, user, password, port)
-        if r:
-            self.show_status(u"Upload file success!")
-        else:
-            self.show_status(msg)
+        sftp.execute([(view.file_name(), remote_path)], hostname, user, password, port)
 
     def _guess_relative_path(self, view):
         file_name = view.file_name()
